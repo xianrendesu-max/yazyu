@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>仙人YouTubeビュアー</title>
+<title>仙人YouTubeビュアー - 再生</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -108,25 +108,12 @@ body {
 .comment-body {
   font-size: 14px;
 }
-
-/* ===== ダウンロードボタン ===== */
-.download-btn {
-  margin-top: 10px;
-  width: 100%;
-  padding: 10px;
-  background: #10b981;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  border-radius: 4px;
-}
 </style>
 </head>
 
 <body>
 
-<!-- ===== 再生切替 ===== -->
+<!-- ===== プレイヤー切替 ===== -->
 <div class="header">
   <button id="btn-nocookie" onclick="setPlayer('nocookie')">nocookie</button>
   <button id="btn-invidious" onclick="setPlayer('invidious')">Invidious</button>
@@ -137,13 +124,12 @@ body {
   <iframe id="player" allowfullscreen></iframe>
 </div>
 
-<!-- ===== 情報 ===== -->
+<!-- ===== 動画情報 & ストリーム ===== -->
 <div class="section">
   <div id="title" class="title">読み込み中...</div>
   <div id="author" class="author"></div>
   <div id="desc" class="desc"></div>
 
-  <!-- ===== ストリーム ===== -->
   <div class="stream">
     <select id="quality">
       <option value="360p">360p</option>
@@ -152,9 +138,6 @@ body {
     </select>
     <button onclick="openStream()">▶ ストリーム再生</button>
   </div>
-
-  <!-- ===== ダウンロード ===== -->
-  <button class="download-btn" onclick="downloadVideo()">⬇ ダウンロード</button>
 </div>
 
 <!-- ===== コメント ===== -->
@@ -180,12 +163,10 @@ function clearActive() {
 
 function setPlayer(type) {
   clearActive();
-
   if (type === "nocookie") {
     player.src = `https://www.youtube-nocookie.com/embed/${videoId}`;
     btnNocookie.classList.add("active");
   }
-
   if (type === "invidious") {
     player.src = `${INVIDIOUS_EMBED}${videoId}`;
     btnInvidious.classList.add("active");
@@ -196,51 +177,46 @@ setPlayer("nocookie");
 
 /* ===== 動画情報 ===== */
 fetch(`/api/video?video_id=${videoId}`)
-  .then(r => r.json())
-  .then(v => {
-    document.getElementById("title").textContent = v.title || "タイトル不明";
-    document.getElementById("author").textContent = v.author || "";
-    document.getElementById("desc").textContent = v.description || "";
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("title").textContent = data.title || "タイトル不明";
+    document.getElementById("author").textContent = data.author || "";
+    document.getElementById("desc").textContent = data.description || "";
   })
   .catch(() => {
     document.getElementById("title").textContent = "動画情報取得失敗";
   });
 
-/* ===== コメント ===== */
+/* ===== コメント取得 ===== */
 fetch(`/api/comments?video_id=${videoId}`)
-  .then(r => r.json())
-  .then(d => {
-    const c = document.getElementById("comments");
-    c.innerHTML = "";
+  .then(res => res.json())
+  .then(data => {
+    const commentsDiv = document.getElementById("comments");
+    commentsDiv.innerHTML = "";
 
-    if (!d.comments || d.comments.length === 0) {
-      c.textContent = "コメントはありません";
+    if (!data.comments || data.comments.length === 0) {
+      commentsDiv.textContent = "コメントはありません";
       return;
     }
 
-    d.comments.forEach(cm => {
+    data.comments.forEach(cm => {
       const div = document.createElement("div");
       div.className = "comment";
       div.innerHTML = `
         <div class="comment-author">${cm.author}</div>
         <div class="comment-body">${cm.content}</div>
       `;
-      c.appendChild(div);
+      commentsDiv.appendChild(div);
     });
   })
   .catch(() => {
     document.getElementById("comments").textContent = "コメント取得失敗";
   });
 
-/* ===== streamurl へ遷移 ===== */
+/* ===== ストリーム再生 ===== */
 function openStream() {
-  const q = document.getElementById("quality").value;
-  location.href = `/api/streamurl?video_id=${videoId}&quality=${q}`;
-}
-
-/* ===== ダウンロード ===== */
-function downloadVideo() {
-  location.href = `/api/download/${videoId}`;
+  const quality = document.getElementById("quality").value;
+  location.href = `/api/streamurl?video_id=${videoId}&quality=${quality}`;
 }
 </script>
 
