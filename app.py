@@ -15,23 +15,55 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
-
 # ===============================
 # 基本設定
 # ===============================
 
 BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+STATICS_DIR = BASE_DIR / "statics"
 
 app = FastAPI()
 
-app.mount(
-    "/static",
-    StaticFiles(directory=str(BASE_DIR / "static")),
-    name="static"
-)
+# ===============================
+# Static mount（static / statics 両対応）
+# ===============================
+
+if STATIC_DIR.exists():
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(STATIC_DIR)),
+        name="static"
+    )
+
+if STATICS_DIR.exists():
+    app.mount(
+        "/statics",
+        StaticFiles(directory=str(STATICS_DIR)),
+        name="statics"
+    )
 
 # ===============================
-# API LIST（指定どおり追加）
+# Static HTML 自動判別
+# ===============================
+
+def get_static_file(filename: str) -> Path:
+    if (STATIC_DIR / filename).exists():
+        return STATIC_DIR / filename
+    if (STATICS_DIR / filename).exists():
+        return STATICS_DIR / filename
+    raise HTTPException(status_code=404, detail="File not found")
+
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return FileResponse(get_static_file("index.html"))
+
+@app.get("/watch", response_class=HTMLResponse)
+def watch():
+    return FileResponse(get_static_file("watch.html"))
+
+# ===============================
+# API LIST
 # ===============================
 
 VIDEO_APIS = [
@@ -94,16 +126,6 @@ def get_360p_single_url(videoid: str) -> str:
 
     raise ValueError("itag18 not found")
 
-
-# ===============================
-# Static
-# ===============================
-
-@app.get("/")
-def root():
-    return FileResponse(str(BASE_DIR / "static/index.html"))
-
-
 # ===============================
 # Search
 # ===============================
@@ -139,7 +161,6 @@ def api_search(q: str):
 
     raise HTTPException(503, "Search unavailable")
 
-
 # ===============================
 # Video Info
 # ===============================
@@ -161,7 +182,6 @@ def api_video(video_id: str):
             }
 
     raise HTTPException(503, "Video info unavailable")
-
 
 # ===============================
 # Comments
@@ -186,7 +206,6 @@ def api_comments(video_id: str):
             }
 
     return {"comments": [], "source": None}
-
 
 # ===============================
 # Stream（再生用）
@@ -217,9 +236,8 @@ def api_streamurl(video_id: str, quality: str = "best"):
 
     raise HTTPException(503, "Stream unavailable")
 
-
 # ===============================
-# ★ ダウンロード（確実）
+# Download（確実・360p）
 # ===============================
 
 @app.get("/api/download/{videoid}")
@@ -251,4 +269,4 @@ async def download_video(videoid: str):
         return Response(
             content=f"Download failed: {str(e)}",
             status_code=503
-        )
+    )
